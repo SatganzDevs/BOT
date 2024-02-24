@@ -31,13 +31,14 @@ const yargs = require('yargs/yargs')
 const NodeCache = require('node-cache')
 const _ = require('lodash')
 const spin = require('spinnies')
+const {connect} = require("./server.js")
 const { Boom } = require('@hapi/boom')
 const PhoneNumber = require('awesome-phonenumber')
 const usePairingCode = false
 const { imageToWebp, videoToWebp, writeExifImg, writeExifVid } = require('./lib/exif')
 const { smsg, isUrl, generateMessageTag, getBuffer, getSizeMedia, fetchJson, await, sleep } = require('./lib/myfunc')
-
-
+const PORT = process.env.PORT || 3000   
+const proxy = process.env.http_proxy || 'http://168.63.76.32:3128';
 
 
 
@@ -55,48 +56,6 @@ rl.question(text, resolve)
 
 
 
-
-const spinnies = new spin();
-
-
-const spinner = { 
-"interval": 120,
-"frames": [
-"✖ [░░░░░░░░░░░░░░░]",
-"✖ [■░░░░░░░░░░░░░░]",
-"✖ [■■░░░░░░░░░░░░░]",
-"✖ [■■■░░░░░░░░░░░░]",
-"✖ [■■■■░░░░░░░░░░░]",
-"✖ [■■■■■░░░░░░░░░░]",
-"✖ [■■■■■■░░░░░░░░░]",
-"✖ [■■■■■■■░░░░░░░░]",
-"✖ [■■■■■■■■░░░░░░░]",
-"✖ [■■■■■■■■■░░░░░░]",
-"✖ [■■■■■■■■■■░░░░░]",
-"✖ [■■■■■■■■■■■░░░░]",
-"✖ [■■■■■■■■■■■■░░░]",
-"✖ [■■■■■■■■■■■■■░░]",
-"✖ [■■■■■■■■■■■■■■░]",
-"✖ [■■■■■■■■■■■■■■■]"
-]}
-
-
-let globalSpinner;
-const getGlobalSpinner = (disableSpins = false) => {
-if(!globalSpinner) globalSpinner = new spin({ color: 'blue', succeedColor: 'green', spinner, disableSpins});
-return globalSpinner;
-}
-
-
-let spins = getGlobalSpinner(false)  
-const start = (id, text) => {
-spins.add(id, {text: text})
-}
-
-
-const success = (id, text) => {
-spins.succeed(id, {text: text})
-}
 
 
 
@@ -117,17 +76,13 @@ const mongoDB = require('./lib/mongoDB')
 
 
 const store = makeInMemoryStore({ logger: pino().child({ level: 'silent', stream: 'store' }) })
-// respon cmd pollMessage
-async function getMessage(key) {
-if (store) {
-const msg = await store.loadMessage(key.remoteJid, key.id);
-return msg?.message;
+//Funtion agar pesan bot tidak pending  
+const getMessage = async (key) => {
+if(store) {
+const msg = await store.loadMessage(key.remoteJid, key.id, undefined)
+return msg?.message || undefined
 }
-return {
-conversation: "Satganzdevs",
-};
 }
-
 
 
 
@@ -212,19 +167,11 @@ logger: pino({ level: "silent" }),
 printQRInTerminal: !usePairingCode,
 auth: state,
 browser: ['Safari (Linux)', '', ''],
-getMessage: async (key) => {
-if (store) {
-const msg = await store.loadMessage(key.remoteJid, key.id);
-return msg?.message;
-}
-return {
-conversation: "Satganzdevs",
-}
-},
+getMessage,
 MessageRetryMap,
 msgRetryCounterCache,
 keepAliveIntervalMs: 20000,
-defaultQueryTimeoutMs: undefined, // for this issues https://github.com/WhiskeySockets/Baileys/issues/276
+defaultQueryTimeoutMs: undefined,
 connectTimeoutMs: 30000,
 emitOwnEvents: true,
 fireInitQueries: true,
@@ -236,7 +183,7 @@ markOnlineOnConnect: true,
     
     
     
-    
+connect(satria, PORT)
     
 if(usePairingCode && !satria.authState.creds.registered) {
 const phoneNumber = await question('Masukan Nomer Yang Aktif Awali Dengan 62 Recode : SatganzDevs:\n');
@@ -339,40 +286,8 @@ if (store && store.contacts) store.contacts[id] = { id, name: contact.notify }}}
     
 satria.ev.on("connection.update", async (update) => {
 const { connection, lastDisconnect } = update;
-if (connection === "close") {
-let reason = new Boom(lastDisconnect?.error)?.output.statusCode;
-if (reason === DisconnectReason.badSession) {
-console.log(`Bad Session File, Please Delete Session and Scan Again`);
-process.exit();
-} else if (reason === DisconnectReason.connectionClosed) {
-console.log("Connection closed, reconnecting....");
-connectToWhatsApp();
-  } else if (reason === DisconnectReason.connectionLost) {
-console.log("Connection Lost from Server, reconnecting...");
-connectToWhatsApp();
-  } else if (reason === DisconnectReason.connectionReplaced) {
-console.log("Connection Replaced, Another New Session Opened, Please Restart Bot");
-process.exit();
-  } else if (reason === DisconnectReason.loggedOut) {
-console.log(`Device Logged Out, Please Delete Folder Session yusril and Scan Again.`);
-process.exit();
-  } else if (reason === DisconnectReason.restartRequired) {
-console.log("Restart Required, Restarting...");
-connectToWhatsApp();
-  } else if (reason === DisconnectReason.timedOut) {
-console.log("Connection TimedOut, Reconnecting...");
-connectToWhatsApp();
-  } else {
-console.log(`Unknown DisconnectReason: ${reason}|${connection}`);
-connectToWhatsApp();
-  }
-} else if (connection === 'connecting') {
-console.log(chalk.magenta(`]─`),`「`,  chalk.red(`SIESTA`), `」`,  chalk.magenta(`─[`))
-start(`1`,`Connecting...`)
-} else if (connection === "open") {
-success(`1`,`[■■■■■■■■■■■■■■■] Connected`) 
-await satria.sendMessage(" 6281316701742@s.whatsapp.net", {text: "im online!"})
-}
+const {connectionUpdate} = require("./message/connection.js")
+await connectionUpdate(connectToWhatsApp, satria, update)
 });
     
     
@@ -933,6 +848,11 @@ data
 return satria
 }
 connectToWhatsApp()
+
+
+
+
+
 
 let file = require.resolve(__filename)
 fs.watchFile(file, () => {
