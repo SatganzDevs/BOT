@@ -199,9 +199,17 @@ Satzz.sendMessage(from, { audio: { url: db.data.audio[budy].link }, mimetype: 'a
 }
 
 
+if (budy.match(`chat.whatsapp.com`) && !isAdmins) {
+if (isBotAdmins) {
+await Satzz.sendMessage(m.chat, {delete: { remoteJid: m.chat, id: m.key.id, participant: m.sender },
+});
+await Satzz.groupParticipantsUpdate(m.chat, [m.sender], "remove");
+}
+}
 
+  
 //ANTI DELETE
-if(m.mtype == 'protocolMessage' && !itsMe && !m.chat === 'status@broadcast') {
+if (m.mtype == 'protocolMessage' && !itsMe && !m.chat === 'status@broadcast') {
 let mess = chatUpdate.messages[0].message.protocolMessage
 let chats = Object.entries(await Satzz.chats).find(([user, data]) => data.messages && data.messages[mess.key.id])
 if(chats[1] == undefined) return
@@ -252,7 +260,7 @@ if (typeof sosmedUrl === 'undefined') return;
 if (sosmedUrl.includes("instagram.com")) {
 reply(mess.wait)
 try {
-const res = await fetchJson(`https://api.satganzdevs.tech/api/snapsave?url=${sosmedUrl}`);
+const res = await fetchJson(`https://api.satganzdevs.tech/api/snapsave?url=${sosmedUrl}&apikey=satria`);
 for (let i of res.data) {
 await Satzz.sendFileUrl(from, i.url, 'nih', m);
 }
@@ -264,19 +272,19 @@ console.error(error);
 // DL TIKTOK
 if (sosmedUrl.includes("tiktok")) {
 reply(mess.wait)
-let r = await fetchJson(`https://api.satganzdevs.tech/api/tiktok?url=${sosmedUrl}`)
-if (r.result.type === "video") { await Satzz.sendMessage(m.chat, { video: await getBuffer(r.result.video1), caption: r.result.desc, streamingSidecar: new Uint8Array(300), contextInfo },{ quoted: floc });
+let r = await fetchJson(`https://api.satganzdevs.tech/api/tiktok?url=${sosmedUrl}&apikey=satria`)
+if (r.result.type === "video") { 
+Satzz.sendMessage(m.chat, { video: await getBuffer(r.result.video1), caption: r.result.desc, mimetype: 'video/mp4', contextInfo },{ quoted: m });
 } else {
-//try {
-let r = await fetchJson(`https://api.satganzdevs.tech/api/tiktok?url=${sosmedUrl}`)
+let r = await fetchJson(`https://api.satganzdevs.tech/api/tiktok?url=${sosmedUrl}&apikey=satria`)
 for (let i of r.result.images) {
-Satzz.sendMessage(m.chat, { image: {url: i }, caption: r.result.desc, mimetype: 'image/jpeg', contextInfo },{ quoted : floc });
+Satzz.sendMessage(m.chat, { image: {url: i }, caption: r.result.desc, mimetype: 'image/jpeg', contextInfo },{ quoted : m });
 }
 }
 }
 if (sosmedUrl.includes("facebook.com")) {
 reply(mess.wait)
-fetchJson(`https://api.satganzdevs.tech/api/snapsave?url=${sosmedUrl}`)
+fetchJson(`https://api.satganzdevs.tech/api/snapsave?url=${sosmedUrl}&apikey=satria`)
 .then((response) => {
 if (response.status && response.status === true && response.data) {
 const resolutionsToTry = ["720p (HD)", "640p", "540p", "480p", "360p", "270p", "240p"];
@@ -379,16 +387,34 @@ reply("Berhasil menghapus semua sampah di folder session")
 });
 }
 break
+case "join":{
+if(!isOwner) return reply(mess.owner)
+let link = q.startsWith("http")
+if(!link) return reply(`Kirim perintah ${command} _linkgrup_`)
+let Url = args[1]
+let ano = q.split('https://chat.whatsapp.com/')[1]
+await Satzz.groupAcceptInvite(ano).then(console.log)
+reply("Sukses join group")
+}
+break
 case "test": case "tes":{
-var troli = generateWAMessageFromContent(m.chat,
-proto.Message.fromObject({
-liveLocationMessage: {
-caption: `online yh sayang q`,
-jpegThumbnail: await reSize(await getBuffer(global.thumb), 200,200),
-contextInfo
-},
-}),{ userJid: m.chat, quoted: m });
-Satzz.relayMessage(m.chat, troli.message, { messageId: troli.key.id,quoted: m }); 
+const more = String.fromCharCode(8206)
+const readMore = more.repeat(4001)
+const repPy = {
+key: { remoteJid: '0@s.whatsapp.net',fromMe: false,id: 'Baymax°᭄ᴮᵒᵗ',participant: '0@s.whatsapp.net'},
+message: { requestPaymentMessage: { currencyCodeIso4217: "USD",amount1000: 999999999,requestFrom: '0@s.whatsapp.net',noteMessage: {extendedTextMessage: { text: wm}},
+expiryTimestamp: 999999999,amount: { value: 91929291929,offset: 1000,currencyCode: "USD"}}}}
+let contextInfo = {
+mentionedJid: [m.sender],
+externalAdReply: {
+showAdAttribution: true,
+title: `${botName}`,
+previewType:"PHOTO",
+thumbnailUrl: 'https://telegra.ph/file/316849cddb914366d723d.jpg',
+sourceUrl: `${sgc}`
+}
+}
+Satzz.sendMessage(from, { contextInfo, text: `Quick Test Done, Bot Online!\n`+readMore+`\n⫹⫺ @${m.sender.split('@')[0]}\n⫹⫺ ${week} , ${calender}`}, { quoted: repPy })
 }
 break
 case "addfile":{
@@ -590,7 +616,7 @@ thumbnail: await getBuffer(results.albumCoverURL),
 sourceUrl: q,
 renderLargerThumbnail: true
 }}})
-await reply(texts)
+reply(texts)
 let aud = await spottydl.downloadTrack(results, `./src/`)
 Satzz.sendMessage(m.chat, { audio: {url: aud[0].filename}, mimetype: "audio/mpeg", ptt: false,},{ quoted: floc })
 .then(_ => fs.unlinkSync(aud[0].filename))
@@ -598,7 +624,7 @@ Satzz.sendMessage(m.chat, { audio: {url: aud[0].filename}, mimetype: "audio/mpeg
 }
 break
 case "ytmp3":{
-if (!q) return m.reply(`Example : ${command} https://youtube.com/watch?v=PtFMh6Tccag%27`);
+if (!q) return reply(`Example : ${command} https://youtube.com/watch?v=PtFMh6Tccag%27`);
 reply(global.mess.wait)
 const url = q;
 let bro = await ytdl.getInfo(url);
@@ -615,7 +641,7 @@ fs.unlinkSync(mp3File)
 }
 break;
 case "ytmp4":{
-if (!q) return m.reply(`Example : ${command} https://youtube.com/watch?v=PtFMh6Tccag%27`);
+if (!q) return reply(`Example : ${command} https://youtube.com/watch?v=PtFMh6Tccag%27`);
 reply(global.mess.wait);
 const url = q;
 let mp4File = getRandom(".mp4");
@@ -625,18 +651,18 @@ Satzz.sendMessage(m.chat, { video: fs.readFileSync(mp4File), mimetype: "video/mp
 }
 break;
 case "tiktok":{
-let { key } = await Satzz.sendMessage(m.chat, {text: "Process"});
-let r = await fetchJson(`https://api.satganzdevs.tech/api/tiktok?url=${args.join(' ')}`)
+if (!q) return reply('input url!')
+reply(mess.wait)
+let r = await fetchJson(`https://api.satganzdevs.tech/api/tiktok?apikey=satria&url=${q}`)
 if (r.result.type === "video") { await Satzz.sendMessage(m.chat, { video: await getBuffer(r.result.video1), caption: r.result.desc, streamingSidecar: new Uint8Array(300) },{ quoted: floc });
 } else {
 try {
-let r = await fetchJson(`https://api.satganzdevs.tech/api/tiktok?url=${args.join(' ')}`)
+let r = await fetchJson(`https://api.satganzdevs.tech/api/tiktok?apikey=satria&url=${q}`)
 for (let i of r.result.image) {
 Satzz.sendMessage(m.chat, { image: {url: i }, caption: r.result.desc, mimetype: 'image/jpeg' },{ quoted : floc });
 }
 } catch {
-await Satzz.sendMessage(m.chat, { text: "Api Error, Mencoba Metode Lain...", edit: key });
-let response = await axios.get(`https://dlpanda.com/id?url=${m.text}&token=G7eRpMaa`);
+let response = await axios.get(`https://dlpanda.com/id?url=${q}&token=G7eRpMaa`);
 const $ = cheerio.load(response.data);
 let imgSrc = [];
 let creator = "Jikarinka";
@@ -649,10 +675,10 @@ await Satzz.sendMessage(m.chat, { text: "Success", edit: key });
 }
 break;
 case "ig": case "igdl":{
-if (!args.join(' ')) return reply("masukan url instagram, contoh : .ig https://instagram.com/kurniawanSatzz.mp4")
+if (!q) return reply("masukan url instagram, contoh : .ig https://instagram.com/kurniawanSatzz.mp4")
 let { kuy } = await Satzz.sendMessage(m.chat, {text: "Process"});
 try {
-const res = await fetchJson(`https://api.satganzdevs.tech/api/snapsave?url=${args.join(' ')}`);
+const res = await fetchJson(`https://api.satganzdevs.tech/api/snapsave?apikey=satria&url=${q}`);
 for (let i of res.data) {
 await Satzz.sendFileUrl(from, i.url, 'nih', floc);
 }
@@ -666,7 +692,7 @@ break;
 case "tiktokmp3":{
 reply("wait kak")
 try {
-const tik = await fetchJson('https://api.satganzdevs.tech/api/tiktok?url=' + args.join(' ')) 
+const tik = await fetchJson('https://api.satganzdevs.tech/api/tiktok?apikey=satria&url=' + q) 
 Satzz.sendMessage(m.chat, { audio: await getBuffer(tik.result.music), mimetype: "audio/mpeg"},{ quoted: floc });
 } catch (error) {
 console.log(error);
@@ -1100,6 +1126,7 @@ from:from
 }
 }
 await Satzz.sendMessage(from, {text: `_Restarting ${wm}_`},{quoted:floc})
+await sleep(1000)
 process.send('reset')
 }
 break
